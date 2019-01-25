@@ -1,0 +1,166 @@
+---
+gcp:
+  service_account_email: service-acount-openstack@openstack-218815.iam.gserviceaccount.com
+  gcp_cred_file: openstack-218815-bc47fec8bf31.json
+  gcp_project: openstack-218815
+  gcp_cred_kind: serviceaccount
+  gcp_zone: europe-west2-c
+  gcp_region: europe-west2
+
+# can support only one vpc and one subnet (all the vm will be connected to the first subnet)
+# needs to add icmp fw rule capability
+
+vpc:
+  - name: avi-vnet
+  - name: ha-vnet
+
+subnet:
+  - name: subnet1
+    cidr: 172.16.1.0/24
+    network: "{{ network.results.0 }}"
+  - name: subnet2
+    cidr: 172.16.2.0/24
+    network: "{{ network.results.1 }}"
+
+fwRules:
+  - name: icmp1
+    network: "{{ network.results.0 }}"
+    protocol: icmp
+    sourceIp: 0.0.0.0/0
+  - name: ssh1
+    network: "{{ network.results.0 }}"
+    protocol: tcp
+    destPort:
+      - 22
+    sourceIp: 0.0.0.0/0
+  - name: http1
+    network: "{{ network.results.0 }}"
+    protocol: tcp
+    destPort:
+      - 80
+    sourceIp: 0.0.0.0/0
+  - name: https1
+    network: "{{ network.results.0 }}"
+    protocol: tcp
+    destPort:
+      - 443
+    sourceIp: 0.0.0.0/0
+  - name: icmp2
+    network: "{{ network.results.1 }}"
+    protocol: icmp
+    sourceIp: 0.0.0.0/0
+  - name: ssh2
+    network: "{{ network.results.1 }}"
+    protocol: tcp
+    destPort:
+      - 22
+    sourceIp: 0.0.0.0/0
+  - name: http2
+    network: "{{ network.results.1 }}"
+    protocol: tcp
+    destPort:
+      - 80
+    sourceIp: 0.0.0.0/0
+  - name: https
+    network: "{{ network.results.1 }}"
+    protocol: tcp
+    destPort:
+      - 443
+    sourceIp: 0.0.0.0/0
+
+routes:
+  - name: sshtunnel
+    cidr: 192.168.100.100/32
+    nexthop: jump1
+    network: "{{ network.results.0 }}"
+
+
+
+instance:
+  - name: jump1
+    diskSize: 25
+    diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
+    machineSize: n1-standard-1
+    hostGroup: jump
+    can_ip_forward: yes
+    nic:
+      - subnetwork: "{{ subnet.results.0 }}"
+        access_configs:
+        - name: External NAT
+          nat_ip:
+          type: ONE_TO_ONE_NAT
+  - name: controller1
+    diskSize: 75
+    diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
+    machineSize: n1-standard-8
+    hostGroup: controller
+    can_ip_forward: no
+    nic:
+      - subnetwork: "{{ subnet.results.0 }}"
+        access_configs:
+        - name: External NAT
+          nat_ip:
+          type: ONE_TO_ONE_NAT
+  - name: controller2
+    diskSize: 75
+    diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
+    machineSize: n1-standard-8
+    hostGroup: controller
+    can_ip_forward: no
+    nic:
+      - subnetwork: "{{ subnet.results.0 }}"
+        access_configs:
+        - name: External NAT
+          nat_ip:
+          type: ONE_TO_ONE_NAT
+  - name: controller3
+    diskSize: 75
+    diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
+    machineSize: n1-standard-8
+    hostGroup: controller
+    can_ip_forward: no
+    nic:
+      - subnetwork: "{{ subnet.results.0 }}"
+        access_configs:
+        - name: External NAT
+          nat_ip:
+          type: ONE_TO_ONE_NAT
+  - name: haproxy1
+    diskSize: 25
+    diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
+    machineSize: n1-standard-1
+    hostGroup: haproxy
+    can_ip_forward: yes
+    nic:
+      - subnetwork: "{{ subnet.results.1 }}"
+        access_configs:
+        - name: External NAT
+          nat_ip:
+          type: ONE_TO_ONE_NAT
+      - subnetwork: "{{ subnet.results.0 }}"
+        access_configs:
+        - name: External NAT
+          nat_ip:
+          type: ONE_TO_ONE_NAT
+
+ansibleHost:
+  hostGroup:
+    - jump
+    - controller
+  publicTemplate: hostsGcpPublic.j2
+  public:
+    - hostsGcpPublic
+  privateTemplate: hostsGcpPrivate.j2
+  private:
+    - hostsGcpPrivate
+    - hostsAviController
+  username: avi
+
+ssh:
+  username: avi
+  privateKeyFile: /home/avi/.ssh/id_rsa
+  authorizedKeysFile: "/home/avi/.ssh/authorized_keys"
+  sshPubKey: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDE1yEkrWAnnsODTzZZghrqXK2i0ZzSkgnbFW4h9gysNPTl09/K+doGQaeX07YMY7vbsVYDQT44nLhW1ysZcaDitUI/ECEIGI08etqGxEGziiPPY0Iw09I1FcxxrMHRcI4u/FBU98NhuUH9VY9zHT1Z/WR4/cG4Xn5wwOfoR1/dL1/x0kGyDL91aEGd930FVsxK6DmR6yHKHFrmrc3KGkhwUGfq2VIYCUA/NyBAC1++9o7Sm9nvB3aziil/Vs3J62Uz5KpcUT1SEe+TU8UI7BHLpZeWHceXWCasRUouX5813Mvc8S7tY/qnlFmRnntnVdHw8ekDwE02z16/NdLapU2n"
+  endpoint: "192.168.100.100"
+  endpointCloud: "192.168.100.101"
+  localPassword: "avi123"

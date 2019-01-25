@@ -1,0 +1,83 @@
+---
+- hosts: jump1
+  gather_facts: no
+  become_user: root
+  become_method: sudo
+
+  vars_files:
+#    - "../creds/azure.yml"
+    - "vars/params.yml"
+
+  vars:
+    ansible_become_pass: "{{ ssh.localPassword }}"
+  #   azureEnv:
+  #     AZURE_CLIENT_ID: "{{ azure.clientId }}"
+  #     AZURE_SECRET: "{{ azure.secret }}"
+  #     AZURE_SUBSCRIPTION_ID: "{{ azure.subscriptionId }}"
+  #     AZURE_TENANT: "{{ azure.tenant }}"
+  #
+  # environment: "{{ azureEnv }}"
+
+  tasks:
+
+
+
+  - name: Update sshd_config
+    become: true
+    lineinfile:
+      dest: /etc/ssh/sshd_config
+      line: "{{ item }}"
+    loop: ['PermitTunnel yes', 'PermitRootLogin yes']
+
+  - name: restart sshd
+    become: true
+    service:
+      name: sshd
+      state: reloaded
+
+  # - name: Get facts for Public IPs
+  #   azure_rm_publicipaddress_facts:
+  #     resource_group: "{{ rg.name }}"
+  #   register: ipFacts
+  #   delegate_to: 127.0.0.1
+
+  # - debug: var=ipFacts
+
+  # - name: Retrieve Jump Public IP address
+  #   set_fact:
+  #     pubIp: "{{ item.properties.ipAddress }}"
+  #   loop: "{{ ipFacts.ansible_facts.azure_publicipaddresses }}"
+  #   when:
+  #     - item.name is search(vnet.subnet.0.name)
+  #     - item.name is search('jump')
+  #   delegate_to: 127.0.0.1
+  #   loop_control:
+  #     label: ""
+
+  # - debug: var=pubIp
+
+  - name: Creating Tunnel interfaces on localhost
+    become: true
+    shell: |
+      nohup ssh -o "StrictHostKeyChecking=no" -NTCf -w 0:0 "{{ ansible_host }}"
+      ip link set up dev tun0
+      ip addr add {{ ssh.endpoint }}/32 peer {{ ssh.endpointCloud }} dev tun0
+      ip route add {{ subnet.0.cidr }} via {{ ssh.endpointCloud }}
+    delegate_to: 127.0.0.1
+
+
+      # nohup ssh -i "{{ ssh.privateKeyFile }}" -o "StrictHostKeyChecking=no" -NTCf -w 0:0 "{{ ansible_host }}"
+      #
+      # ip link set up dev tun0
+      # ip addr add {{ ssh.endpoint }}/32 peer {{ ssh.endpointCloud }} dev tun0
+      # ip route add {{ vpc.subnet.0.cidr }} via {{ ssh.endpointCloud }}
+          # ip link set up dev tun0
+          # ip addr add {{ ssh.endpoint }}/32 peer {{ ssh.endpointCloud }} dev tun0
+          # ip route add {{ vpc.subnet.0.cidr }} via {{ ssh.endpointCloud }}
+
+  - name: Creating Tunnel interfaces on remote host
+    become: true
+    shell: |
+      echo 1 | tee /proc/sys/net/ipv4/ip_forward
+      ip link set up dev tun0
+      ip addr add {{ ssh.endpointCloud }}/32 peer {{ ssh.endpoint }} dev tun0

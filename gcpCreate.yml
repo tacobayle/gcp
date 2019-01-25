@@ -1,0 +1,254 @@
+---
+- name: Create a GCP infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars:
+    vmNameList: []
+    pubIpList: []
+#    privateIpList: []
+    controllerIp: []
+    jumpIp: []
+    seIp: []
+    serverIp: []
+    clientIP: []
+    controllerList: ['controller']
+    jumpList: ['jump']
+    # serverList: ['server']
+    # clientList: ['client']
+    # seList: ['se']
+    ansibleHostList: []
+
+
+
+  vars_files:
+    - "vars/params.yml"
+
+  tasks:
+
+    - name: create a network
+      gcp_compute_network:
+        name: "{{ item.name }}"
+        auto_create_subnetworks: false
+        state: present
+        project: "{{ gcp.gcp_project }}"
+        auth_kind: "{{ gcp.gcp_cred_kind }}"
+        service_account_file: "{{ gcp.gcp_cred_file }}"
+      register: network
+      loop: "{{ vpc }}"
+
+
+    - name: create a subnet
+      gcp_compute_subnetwork:
+        name: "{{ item.name }}"
+        network: "{{ item.network }}"
+        ip_cidr_range: "{{ item.cidr }}"
+        state: present
+        region: "{{ gcp.gcp_region }}"
+        project: "{{ gcp.gcp_project }}"
+        auth_kind: "{{ gcp.gcp_cred_kind }}"
+        service_account_file: "{{ gcp.gcp_cred_file }}"
+      loop: "{{ subnet }}"
+      register: subnet
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: create a firewall rule (for tcp or udp)
+      gcp_compute_firewall:
+        name: "{{ item.name }}"
+        network: "{{ item.network }}"
+        allowed:
+        - ip_protocol: "{{ item.protocol }}"
+          ports: "{{ item.destPort }}"
+        source_ranges: "{{ item.sourceIp }}"
+        state: present
+        project: "{{ gcp.gcp_project }}"
+        auth_kind: "{{ gcp.gcp_cred_kind }}"
+        service_account_file: "{{ gcp.gcp_cred_file }}"
+      loop: "{{ fwRules }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: item.protocol == 'tcp' or item.protocol == 'tcp'
+
+    - name: create a firewall rule (for icmp)
+      gcp_compute_firewall:
+        name: "{{ item.name }}"
+        network: "{{ item.network }}"
+        allowed:
+        - ip_protocol: "{{ item.protocol }}"
+        source_ranges: "{{ item.sourceIp }}"
+        state: present
+        project: "{{ gcp.gcp_project }}"
+        auth_kind: "{{ gcp.gcp_cred_kind }}"
+        service_account_file: "{{ gcp.gcp_cred_file }}"
+      loop: "{{ fwRules }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: item.protocol == 'icmp'
+
+    - name: create a disk
+      gcp_compute_disk:
+        name: "disk-{{ item.name }}"
+        size_gb: "{{ item.diskSize }}"
+        source_image: "{{ item.diskSource }}"
+        licenses: https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx
+        state: present
+        zone: "{{ gcp.gcp_zone }}"
+        project: "{{ gcp.gcp_project }}"
+        auth_kind: "{{ gcp.gcp_cred_kind }}"
+        service_account_file: "{{ gcp.gcp_cred_file }}"
+      register: disk
+      loop: "{{ instance }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: create a VM
+      gcp_compute_instance:
+        name: "{{ item.0.name }}"
+        machine_type: "{{ item.0.machineSize }}"
+        can_ip_forward: "{{ item.0.can_ip_forward }}"
+        disks:
+        - auto_delete: true
+          boot: true
+          source: "{{ item.1 }}"
+        metadata:
+          items:
+          - key: startup-script
+            value: "#!/bin/bash ; echo 'test' > toto.txt"
+        network_interfaces: "{{ item.0.nic }}"
+        # - subnetwork: "{{ subnet.results.0 }}"
+        #   access_configs:
+        #   - name: External NAT
+        #     nat_ip:
+        #     type: ONE_TO_ONE_NAT
+        state: present
+        zone: "{{ gcp.gcp_zone }}"
+        project: "{{ gcp.gcp_project }}"
+        auth_kind: "{{ gcp.gcp_cred_kind }}"
+        service_account_file: "{{ gcp.gcp_cred_file }}"
+      register: vm
+      with_together:
+        - "{{ instance }}"
+        - "{{ disk.results }}"
+      loop_control:
+        label: "{{ item.0.name }}"
+
+    - name: create a route
+      gcp_compute_route:
+        name: "{{ item.0.name }}"
+        dest_range: "{{ item.0.cidr }}"
+        next_hop_instance: "{{ item.1.selfLink }}"
+        network: "{{ item.0.network }}"
+        state: present
+        project: "{{ gcp.gcp_project }}"
+        auth_kind: "{{ gcp.gcp_cred_kind }}"
+        service_account_file: "{{ gcp.gcp_cred_file }}"
+      with_nested:
+        - "{{ routes }}"
+        - "{{ vm.results }}"
+      when: item.0.nexthop == item.1.name
+      ignore_errors: yes
+
+
+    - debug: var=routes.0.network
+
+
+    - name: Build a list for controllerIP
+      set_fact:
+        controllerIp: "{{ controllerIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+      with_nested:
+        - "{{ instance }}"
+        - "{{ vm.results }}"
+      when: item.0.hostGroup == 'controller' and item.1.name == item.0.name
+      loop_control:
+        label: "{{ item.0.name }}"
+
+    - name: Build a list for JumpIP
+      set_fact:
+        jumpIp: "{{ jumpIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+      with_nested:
+        - "{{ instance }}"
+        - "{{ vm.results }}"
+      when: item.0.hostGroup == 'jump' and item.1.name == item.0.name
+      loop_control:
+        label: "{{ item.0.name }}"
+
+    - name: Build a list for seIP
+      set_fact:
+        seIp: "{{ seIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+      with_nested:
+        - "{{ instance }}"
+        - "{{ vm.results }}"
+      when: item.0.hostGroup == 'se' and item.1.name == item.0.name
+
+    - name: Build a list for clientIP
+      set_fact:
+        clientIp: "{{ clientIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+      with_nested:
+        - "{{ instance }}"
+        - "{{ vm.results }}"
+      when: item.0.hostGroup == 'client' and item.1.name == item.0.name
+
+    - name: Build a list for serverIP
+      set_fact:
+        serverIp: "{{ serverIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+      with_nested:
+        - "{{ instance }}"
+        - "{{ vm.results }}"
+      when: item.0.hostGroup == 'server' and item.1.name == item.0.name
+
+    - name: Build a list for controllerList
+      set_fact:
+        controllerList: "{{ controllerList + [controllerIp] }}"
+
+    - name: Build a list for jumpList
+      set_fact:
+        jumpList: "{{ jumpList + [jumpIp] }}"
+
+    # - name: Build a list for serverList
+    #   set_fact:
+    #     serverList: "{{ serverList + [serverIp] }}"
+    #
+    # - name: Build a list for clientList
+    #   set_fact:
+    #     clientList: "{{ clientList + [clientIp] }}"
+
+    # - name: Build a list for seList
+    #   set_fact:
+    #     seList: "{{ seList + [seIp] }}"
+
+    - name: Build a list for ansibleHostList
+      set_fact:
+        #ansibleHostList: "{{ ansibleHostList + [controllerList] + [jumpList] + [seList] + [serverList] + [clientList] }}"
+        ansibleHostList: "{{ ansibleHostList + [controllerList] + [jumpList] }}"
+
+    - debug: var=ansibleHostList
+
+
+
+    - name: Create an ansible inventory host file for private IP
+      template:
+        src: "{{ ansibleHost.privateTemplate }}"
+        dest: "{{ item }}"
+      delegate_to: 127.0.0.1
+      ignore_errors: yes
+      loop: "{{ ansibleHost.private }}"
+
+    - name: Append VM Name in the list
+      set_fact:
+        vmNameList: "{{ vmNameList }} + [ '{{ item.name }}' ]"
+      loop: "{{ instance }}"
+
+    - name: Append Public IPs for first/primary network only
+      set_fact:
+        pubIpList: "{{ pubIpList }} + [ '{{ item.networkInterfaces.0.accessConfigs.0.natIP }}' ]"
+      loop: "{{ vm.results }}"
+
+    - name: Create an ansible inventory host file for public IP
+      template:
+        src: "{{ ansibleHost.publicTemplate }}"
+        dest: "{{ item }}"
+      delegate_to: 127.0.0.1
+      ignore_errors: yes
+      loop: "{{ ansibleHost.public }}"
