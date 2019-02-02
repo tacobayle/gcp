@@ -2,11 +2,11 @@
 ---
 all:
   children:
-  {% for item in jsonListPrivate %}
-    {{ item['name'] }}:
+  {% for item in ansibleHostList %}
+    {{ item.0 }}:
       hosts:
-    {% for addr in item['ip'] %}
-        {{ addr }}:
+    {% for ip in item.1 %}
+        {{ ip }}:
     {% endfor %}
   {% endfor %}
   vars:

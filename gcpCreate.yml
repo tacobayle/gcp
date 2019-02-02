@@ -8,17 +8,18 @@
     vmNameList: []
     pubIpList: []
 #    privateIpList: []
-    controllerIp: []
-    jumpIp: []
-    seIp: []
-    serverIp: []
-    clientIP: []
-    controllerList: ['controller']
-    jumpList: ['jump']
+    # controllerIp: []
+    # jumpIp: []
+    # seIp: []
+    # serverIp: []
+    # clientIP: []
+    # controllerList: ['controller']
+    # jumpList: ['jump']
     # serverList: ['server']
     # clientList: ['client']
     # seList: ['se']
-    ansibleHostList: []
+    # ansibleHostList: []
+    privateIpList: []
 
 
 
@@ -150,61 +151,61 @@
       when: item.0.nexthop == item.1.name
       ignore_errors: yes
 
-
-    - debug: var=routes.0.network
-
-
-    - name: Build a list for controllerIP
-      set_fact:
-        controllerIp: "{{ controllerIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
-      with_nested:
-        - "{{ instance }}"
-        - "{{ vm.results }}"
-      when: item.0.hostGroup == 'controller' and item.1.name == item.0.name
-      loop_control:
-        label: "{{ item.0.name }}"
-
-    - name: Build a list for JumpIP
-      set_fact:
-        jumpIp: "{{ jumpIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
-      with_nested:
-        - "{{ instance }}"
-        - "{{ vm.results }}"
-      when: item.0.hostGroup == 'jump' and item.1.name == item.0.name
-      loop_control:
-        label: "{{ item.0.name }}"
-
-    - name: Build a list for seIP
-      set_fact:
-        seIp: "{{ seIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
-      with_nested:
-        - "{{ instance }}"
-        - "{{ vm.results }}"
-      when: item.0.hostGroup == 'se' and item.1.name == item.0.name
-
-    - name: Build a list for clientIP
-      set_fact:
-        clientIp: "{{ clientIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
-      with_nested:
-        - "{{ instance }}"
-        - "{{ vm.results }}"
-      when: item.0.hostGroup == 'client' and item.1.name == item.0.name
-
-    - name: Build a list for serverIP
-      set_fact:
-        serverIp: "{{ serverIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
-      with_nested:
-        - "{{ instance }}"
-        - "{{ vm.results }}"
-      when: item.0.hostGroup == 'server' and item.1.name == item.0.name
-
-    - name: Build a list for controllerList
-      set_fact:
-        controllerList: "{{ controllerList + [controllerIp] }}"
-
-    - name: Build a list for jumpList
-      set_fact:
-        jumpList: "{{ jumpList + [jumpIp] }}"
+    #
+    # - debug: var=routes.0.network
+    #
+    #
+    # - name: Build a list for controllerIP
+    #   set_fact:
+    #     controllerIp: "{{ controllerIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+    #   with_nested:
+    #     - "{{ instance }}"
+    #     - "{{ vm.results }}"
+    #   when: item.0.hostGroup == 'controller' and item.1.name == item.0.name
+    #   loop_control:
+    #     label: "{{ item.0.name }}"
+    #
+    # - name: Build a list for JumpIP
+    #   set_fact:
+    #     jumpIp: "{{ jumpIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+    #   with_nested:
+    #     - "{{ instance }}"
+    #     - "{{ vm.results }}"
+    #   when: item.0.hostGroup == 'jump' and item.1.name == item.0.name
+    #   loop_control:
+    #     label: "{{ item.0.name }}"
+    #
+    # - name: Build a list for seIP
+    #   set_fact:
+    #     seIp: "{{ seIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+    #   with_nested:
+    #     - "{{ instance }}"
+    #     - "{{ vm.results }}"
+    #   when: item.0.hostGroup == 'se' and item.1.name == item.0.name
+    #
+    # - name: Build a list for clientIP
+    #   set_fact:
+    #     clientIp: "{{ clientIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+    #   with_nested:
+    #     - "{{ instance }}"
+    #     - "{{ vm.results }}"
+    #   when: item.0.hostGroup == 'client' and item.1.name == item.0.name
+    #
+    # - name: Build a list for serverIP
+    #   set_fact:
+    #     serverIp: "{{ serverIp }} + [ '{{ item.1.networkInterfaces.0.networkIP }}' ]"
+    #   with_nested:
+    #     - "{{ instance }}"
+    #     - "{{ vm.results }}"
+    #   when: item.0.hostGroup == 'server' and item.1.name == item.0.name
+    #
+    # - name: Build a list for controllerList
+    #   set_fact:
+    #     controllerList: "{{ controllerList + [controllerIp] }}"
+    #
+    # - name: Build a list for jumpList
+    #   set_fact:
+    #     jumpList: "{{ jumpList + [jumpIp] }}"
 
     # - name: Build a list for serverList
     #   set_fact:
@@ -217,23 +218,23 @@
     # - name: Build a list for seList
     #   set_fact:
     #     seList: "{{ seList + [seIp] }}"
-
-    - name: Build a list for ansibleHostList
-      set_fact:
-        #ansibleHostList: "{{ ansibleHostList + [controllerList] + [jumpList] + [seList] + [serverList] + [clientList] }}"
-        ansibleHostList: "{{ ansibleHostList + [controllerList] + [jumpList] }}"
-
-    - debug: var=ansibleHostList
-
-
-
-    - name: Create an ansible inventory host file for private IP
-      template:
-        src: "{{ ansibleHost.privateTemplate }}"
-        dest: "{{ item }}"
-      delegate_to: 127.0.0.1
-      ignore_errors: yes
-      loop: "{{ ansibleHost.private }}"
+    #
+    # - name: Build a list for ansibleHostList
+    #   set_fact:
+    #     #ansibleHostList: "{{ ansibleHostList + [controllerList] + [jumpList] + [seList] + [serverList] + [clientList] }}"
+    #     ansibleHostList: "{{ ansibleHostList + [controllerList] + [jumpList] }}"
+    #
+    # - debug: var=ansibleHostList
+    #
+    #
+    #
+    # - name: Create an ansible inventory host file for private IP
+    #   template:
+    #     src: "{{ ansibleHost.privateTemplate }}"
+    #     dest: "{{ item }}"
+    #   delegate_to: 127.0.0.1
+    #   ignore_errors: yes
+    #   loop: "{{ ansibleHost.private }}"
 
     - name: Append VM Name in the list
       set_fact:
@@ -252,3 +253,28 @@
       delegate_to: 127.0.0.1
       ignore_errors: yes
       loop: "{{ ansibleHost.public }}"
+
+    - name: Build a list for Private IP
+      set_fact:
+        privateIpList: "{{ privateIpList }} + [ '{{ item.networkInterfaces.0.networkIP }}' ]"
+      loop: "{{ vm.results }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - debug: var=privateIpList
+
+    - name: generate a list of dictionary to create an ansible host inventory for private IPs per group
+      command: python3 generateListDict.py vars/params.yml "{{ privateIpList }}"
+      delegate_to: 127.0.0.1
+      register: listPrivate
+
+    - set_fact:
+        jsonListPrivate: "{{ listPrivate.stdout | from_json }}"
+
+    - name: Create an ansible inventory host file for private IP
+      template:
+        src: "{{ ansibleHost.privateTemplate }}"
+        dest: "{{ item }}"
+      delegate_to: 127.0.0.1
+      ignore_errors: yes
+      loop: "{{ ansibleHost.private }}"

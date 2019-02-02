@@ -79,9 +79,9 @@ routes:
 instance:
   - name: jump1
     diskSize: 25
+    hostGroup: jump
     diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
     machineSize: n1-standard-1
-    hostGroup: jump
     can_ip_forward: yes
     nic:
       - subnetwork: "{{ subnet.results.0 }}"
@@ -91,9 +91,9 @@ instance:
           type: ONE_TO_ONE_NAT
   - name: controller1
     diskSize: 75
+    hostGroup: controller
     diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
     machineSize: n1-standard-8
-    hostGroup: controller
     can_ip_forward: no
     nic:
       - subnetwork: "{{ subnet.results.0 }}"
@@ -103,9 +103,9 @@ instance:
           type: ONE_TO_ONE_NAT
   - name: controller2
     diskSize: 75
+    hostGroup: controller
     diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
     machineSize: n1-standard-8
-    hostGroup: controller
     can_ip_forward: no
     nic:
       - subnetwork: "{{ subnet.results.0 }}"
@@ -115,9 +115,9 @@ instance:
           type: ONE_TO_ONE_NAT
   - name: controller3
     diskSize: 75
+    hostGroup: controller
     diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
     machineSize: n1-standard-8
-    hostGroup: controller
     can_ip_forward: no
     nic:
       - subnetwork: "{{ subnet.results.0 }}"
@@ -127,9 +127,9 @@ instance:
           type: ONE_TO_ONE_NAT
   - name: haproxy1
     diskSize: 25
+    hostGroup: haproxy
     diskSource: projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts
     machineSize: n1-standard-1
-    hostGroup: haproxy
     can_ip_forward: yes
     nic:
       - subnetwork: "{{ subnet.results.1 }}"
@@ -147,6 +147,7 @@ ansibleHost:
   hostGroup:
     - jump
     - controller
+    - haproxy
   publicTemplate: hostsGcpPublic.j2
   public:
     - hostsGcpPublic
